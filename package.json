@@ -1,0 +1,19 @@
+{
+  "name": "daily-intervals",
+  "version": "1.0.0",
+  "description": "Create intervals that are based on the time",
+  "main": "./src/dailyintervals.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TelevisionNinja/daily-intervals.git"
+  },
+  "author": "TelevisionNinja",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/TelevisionNinja/daily-intervals/issues"
+  },
+  "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme"
+}
