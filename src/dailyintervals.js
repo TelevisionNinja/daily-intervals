@@ -14,6 +14,7 @@ module.exports = class DailyInterval {
     #func;
     #intervalStartTime;
     #interval;
+    #offset;
 
     // timimg vars
     #timeRemaining;
@@ -30,12 +31,14 @@ module.exports = class DailyInterval {
      * @param {Function} func func to execute at every interval
      * @param {String} intervalStartTime starting time of the intervals, format: h:m (24 hour)
      * @param {Number} interval minutes between intervals
+     * @param {Number} offset ms offset
      */
-    constructor(func, intervalStartTime, interval) {
+    constructor(func, intervalStartTime, interval, offset = 0) {
         // user's vars
         this.func = func;
         this.intervalStartTime = intervalStartTime;
         this.interval = interval;
+        this.offset = offset;
 
         // private vars
         this.#currentTime = 0;
@@ -65,6 +68,10 @@ module.exports = class DailyInterval {
      */
     get intervalStartTime() {
         return this.#intervalStartTime;
+    }
+
+    get offset() {
+        return this.#offset;
     }
 
     //----------------------------------------------------------------------------------
@@ -104,6 +111,10 @@ module.exports = class DailyInterval {
         this.#intervalStartTime = 60 * startTimeArr[0] + startTimeArr[1];
     }
 
+    set offset(newOffset) {
+        this.#offset = newOffset;
+    }
+
     //----------------------------------------------------------------------------------
     // private methods
 
@@ -134,7 +145,7 @@ module.exports = class DailyInterval {
             //this.#overshoot = true;
         }
 
-        this.#timeRemaining = 60000 * delta - this.#currentMs;
+        this.#timeRemaining = 60000 * delta - this.#currentMs + this.#offset;
     }
 
     /**
