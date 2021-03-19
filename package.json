@@ -1,8 +1,8 @@
 {
   "name": "daily-intervals",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Create intervals that are based on the time",
-  "main": "./src/dailyintervals.js",
+  "main": "./src/dailyinterval.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
