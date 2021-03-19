@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/TelevisionNinja/daily-intervals/issues"
   },
-  "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme"
+  "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme",
+  "dependencies": {
+    "no-drift": "^1.0.0"
+  }
 }

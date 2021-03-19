@@ -1,7 +1,7 @@
 const {
     setNoDriftTimeout,
     clearNoDrift
-} = require('../src/nodrift.js');
+} = require('no-drift');
 
 module.exports = class DailyInterval {
     // private vars
