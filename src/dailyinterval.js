@@ -1,9 +1,9 @@
-const {
+import {
     setNoDriftTimeout,
     clearNoDrift
-} = require('no-drift');
+} from 'no-drift';
 
-module.exports = class DailyInterval {
+export default class DailyInterval {
     // private vars
     #currentTime;
     #currentMs;
@@ -70,6 +70,9 @@ module.exports = class DailyInterval {
         return this.#intervalStartTime;
     }
 
+    /**
+     * returns the offset
+     */
     get offset() {
         return this.#offset;
     }
@@ -111,6 +114,11 @@ module.exports = class DailyInterval {
         this.#intervalStartTime = 60 * startTimeArr[0] + startTimeArr[1];
     }
 
+    /**
+     * sets the offset
+     * 
+     * @param {Number} newOffset
+     */
     set offset(newOffset) {
         this.#offset = newOffset;
     }
@@ -141,7 +149,7 @@ module.exports = class DailyInterval {
         }
         else if (delta < 0) {
             // overshoot
-            delta += (~~((0 - delta) / this.#interval) + 1) * this.#interval;
+            delta += (~~(-delta / this.#interval) + 1) * this.#interval;
             //this.#overshoot = true;
         }
 
