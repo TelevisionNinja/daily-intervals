@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme",
   "dependencies": {
-    "no-drift": "^1.0.0"
+    "no-drift": "^2.0.0"
   }
 }
