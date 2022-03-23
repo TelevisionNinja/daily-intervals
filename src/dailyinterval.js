@@ -5,6 +5,7 @@ let newID = 1;
 const rate = 0.9;
 // number of ms in a min
 const conversionFactor = 60 * 1000;
+const msInADay = conversionFactor * 60 * 24;
 
 /**
  * creates a function if the callback is a string
@@ -34,19 +35,10 @@ function parseTimeStr(str) {
  * converts hrs and mins to mins
  * @param {Number} hrs 
  * @param {Number} mins 
- * @returns mins
+ * @returns ms
  */
 function convertTimeToMs(hrs, mins) {
     return (60 * hrs + mins) * conversionFactor;
-}
-
-/**
- * 
- * @param {Array} arr array from parseTimeStr()
- * @returns ms
- */
-function timeArrToMs(arr) {
-    return convertTimeToMs(...arr);
 }
 
 /**
@@ -84,36 +76,15 @@ function getTimeInMs(time) {
 }
 
 /**
- * sets the correct time for the intervalTime object
+ * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
- * @param {Object} intervalTime Data object
+ * @param {Number} currentTime utc mc
  * @param {Number} interval ms
+ * @param {Number} epoch utc ms
+ * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, manipulate and return interger 'n'
+ * @returns ms
  */
-function adjustIntervalTime(intervalTime, interval) {
-    const correctIntervalTime = convertMsToHrAndMins(Math.trunc(getTimeInMs(intervalTime) / interval) * interval);
-
-    const currentHr = intervalTime.getHours();
-    const currentMin = intervalTime.getMinutes();
-    const hrDelta = correctIntervalTime.hrs - currentHr;
-    const minDelta = correctIntervalTime.mins - currentMin;
-    const previous = intervalTime.valueOf();
-
-    intervalTime.setHours(currentHr + hrDelta, currentMin + minDelta);
-
-    if (intervalTime.valueOf() < Date.now()) {
-        intervalTime.setTime(previous + interval);
-        adjustIntervalTime(intervalTime, interval);
-    }
-}
-
-/**
- * calculates and sets the next interval time based on a given current time, interval amount, and the interval starting time
- * 
- * @param {Number} intervalTime Date object
- * @param {Number} interval ms
- * @param {Number} epoch ms
- */
-function calcNextIntervalTime(intervalTime, interval, epoch) {
+function formula(currentTime, interval, epoch, func) {
     /*
         // formula
         // 'interval' and 'startTime' are in some selected unit
@@ -124,39 +95,121 @@ function calcNextIntervalTime(intervalTime, interval, epoch) {
 
         n = delta / interval
 
-        // for negative deltas, return the nearest interval
-        if (delta >= 0) {
-            n++
+        // func to get the next interval
+        func(n) {
+            // for negative deltas, return the nearest interval
+            if (n >= 0) {
+                return n + 1;
+            }
+
+            return n;
         }
 
-        nextTime = interval * n + startTime
+        n = func(n)
+
+        newIntervalTime = interval * n + startTime
 
         // the result is the next time interval in the appropriate untis
     */
 
-    const delta = Date.now() - epoch;
-    let nearestInterval = Math.trunc(delta / interval);
+    return func(Math.trunc((currentTime - epoch) / interval)) * interval + epoch;
+}
 
-    if (delta >= 0) {
-        nearestInterval++;
+/**
+ * sets the correct time for the intervalTime object
+ * 
+ * @param {Object} intervalTime Data object
+ * @param {Number} interval ms
+ * @param {Object} epoch object from createEpoch()
+ */
+function adjustIntervalTime(intervalTime, interval, epoch) {
+    // calculate the correct interval time
+
+    const adjustedInterval = interval % msInADay;
+    let correctIntervalTime = undefined;
+
+    if (adjustedInterval > 0) {
+        correctIntervalTime = convertMsToHrAndMins(formula(getTimeInMs(intervalTime), adjustedInterval, convertTimeToMs(epoch.hrs, epoch.mins), (n) => {
+            return n;
+        }));
+    }
+    else {
+        correctIntervalTime = {
+            hrs: epoch.hrs,
+            mins: epoch.mins
+        };
     }
 
-    intervalTime.setTime(nearestInterval * interval + epoch);
-    // the set time coud have the wrong hrs and mins
-    adjustIntervalTime(intervalTime, interval);
+    //-----------------------------------------------------
+    // adjust the interval time
+
+    const currentHr = intervalTime.getHours();
+    const currentMin = intervalTime.getMinutes();
+    const hrDelta = correctIntervalTime.hrs - currentHr;
+    const minDelta = correctIntervalTime.mins - currentMin;
+    const previous = intervalTime.valueOf();
+
+    intervalTime.setHours(currentHr + hrDelta, currentMin + minDelta);
+
+    //-----------------------------------------------------
+
+    // daylight savings where the time gets set backwards
+    if (intervalTime.valueOf() < Date.now()) {
+        intervalTime.setTime(previous + interval);
+        adjustIntervalTime(intervalTime, interval, epoch);
+    }
+}
+
+/**
+ * sets the next interval time based
+ * 
+ * @param {Object} intervalTime Date object
+ * @param {Number} interval ms
+ * @param {Object} epoch object from createEpoch()
+ */
+function setNextIntervalTime(intervalTime, interval, epoch) {
+    intervalTime.setTime(formula(Date.now(), interval, epoch.UTCValue, (n) => {
+        // for negative deltas, return the nearest interval
+        if (n >= 0) {
+            return n + 1;
+        }
+
+        return n;
+    }));
+
+    // the set time could have the wrong hrs and mins bc of daylight savings
+    adjustIntervalTime(intervalTime, interval, epoch);
 }
 
 /**
  * creates a time interval Date object
  * 
  * @param {Number} interval ms
- * @param {Number} epoch ms
+ * @param {Object} epoch object from createEpoch()
  * @returns Date object
  */
 function createTimeInterval(interval, epoch) {
     const intervalTime = new Date();
-    calcNextIntervalTime(intervalTime, interval, epoch);
+    setNextIntervalTime(intervalTime, interval, epoch);
     return intervalTime;
+}
+
+/**
+ * create a starting time for the intervals
+ * 
+ * @param {Number} hrs 
+ * @param {Number} mins 
+ * @returns epoch object
+ */
+function createEpoch(hrs, mins) {
+    const epochDate = new Date();
+    epochDate.setHours(hrs, mins, 0, 0);
+
+    return {
+        UTCValue: epochDate.valueOf(),
+        hrs: hrs,
+        mins: mins
+    };
 }
 
 /**
@@ -166,7 +219,7 @@ function createTimeInterval(interval, epoch) {
  * @param {Number} ID int
  * @param {Number} interval ms
  * @param {Object} intervalTime Data object
- * @param {Number} epoch ms
+ * @param {Object} epoch object from createEpoch()
  */
 function customInterval(callback, ID, interval, intervalTime, epoch) {
     IDs.set(
@@ -179,18 +232,20 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
 
                 if (intervalTime.valueOf() < time) {
                     // system time changes greater than the interval time
-                    calcNextIntervalTime(intervalTime, interval, epoch);
+                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                    setNextIntervalTime(intervalTime, interval, epoch);
                 }
                 else {
                     callback();
                     // daylight savings adjustment
-                    adjustIntervalTime(intervalTime, interval);
+                    adjustIntervalTime(intervalTime, interval, epoch);
                 }
             }
             else {
                 // system time changes less than the interval time
                 if (intervalTime.valueOf() - time > interval) {
-                    calcNextIntervalTime(intervalTime, interval, epoch);
+                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                    setNextIntervalTime(intervalTime, interval, epoch);
                 }
             }
 
@@ -214,7 +269,9 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
     }
 
     interval = convertMinsToMs(interval);
-    const epoch = timeArrToMs(parseTimeStr(startingTime));
+
+    const timeArr = parseTimeStr(startingTime);
+    const epoch = createEpoch(timeArr[0], timeArr[1]);
 
     // start the interval
     customInterval(createCallback(callback, args), newID, interval, createTimeInterval(interval, epoch), epoch);
