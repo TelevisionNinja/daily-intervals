@@ -2,7 +2,7 @@
   "name": "daily-intervals",
   "version": "3.0.0",
   "description": "Create intervals that are based on the time",
-  "main": "./src/dailyinterval.js",
+  "main": "./src/dailyIntervals.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
