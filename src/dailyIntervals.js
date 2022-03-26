@@ -81,7 +81,7 @@ function getTimeInMs(time) {
  * @param {Number} currentTime utc mc
  * @param {Number} interval ms
  * @param {Number} epoch utc ms
- * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, manipulate and return interger 'n'
+ * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, it should manipulate and return 'n'
  * @returns ms
  */
 function formula(currentTime, interval, epoch, func) {
@@ -112,7 +112,7 @@ function formula(currentTime, interval, epoch, func) {
         // the result is the next time interval in the appropriate untis
     */
 
-    return func(Math.trunc((currentTime - epoch) / interval)) * interval + epoch;
+    return Math.trunc(func((currentTime - epoch) / interval)) * interval + epoch;
 }
 
 /**
@@ -123,7 +123,7 @@ function formula(currentTime, interval, epoch, func) {
  * @param {Object} epoch object from createEpoch()
  */
 function adjustIntervalTime(intervalTime, interval, epoch) {
-    // calculate the correct interval time
+    // calculate the correct interval time and adjust the interval
 
     const adjustedInterval = interval % msInADay;
     let correctIntervalTime = undefined;
@@ -140,22 +140,15 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         };
     }
 
-    //-----------------------------------------------------
-    // adjust the interval time
+    const previousTime = intervalTime.valueOf();
 
-    const currentHr = intervalTime.getHours();
-    const currentMin = intervalTime.getMinutes();
-    const hrDelta = correctIntervalTime.hrs - currentHr;
-    const minDelta = correctIntervalTime.mins - currentMin;
-    const previous = intervalTime.valueOf();
-
-    intervalTime.setHours(currentHr + hrDelta, currentMin + minDelta);
+    intervalTime.setHours(correctIntervalTime.hrs, correctIntervalTime.mins);
 
     //-----------------------------------------------------
 
-    // daylight savings where the time gets set backwards
+    // go to the next interval if the adjusted interval is before the current time (ex: daylight savings where the time gets set backwards)
     if (intervalTime.valueOf() < Date.now()) {
-        intervalTime.setTime(previous + interval);
+        intervalTime.setTime(previousTime + interval);
         adjustIntervalTime(intervalTime, interval, epoch);
     }
 }
