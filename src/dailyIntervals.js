@@ -157,8 +157,18 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
-    if (intervalTime.valueOf() < Date.now()) {
+    const now = new Date();
+
+    if (intervalTime.valueOf() < now.valueOf()) {
         intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset());
+
+        // this handles the case where the interval was started on the time of the daylight savings execution time
+        now.setUTCSeconds(0, 0);
+
+        if (intervalTime.valueOf() === now.valueOf()) {
+            intervalTime.setTime(intervalTime.valueOf() + interval);
+            adjustIntervalTime(intervalTime, interval, epoch);
+        }
     }
 }
 
