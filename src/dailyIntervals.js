@@ -189,6 +189,22 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         intervalTime = intervalTime.add({
             nanoseconds: getDaylightSavingsOffset()
         });
+
+        // this handles the case where the interval was started on the time of the daylight savings execution time
+        const now = Temporal.Now.zonedDateTimeISO().with({
+            second: 0,
+            millisecond: 0,
+            microsecond: 0,
+            nanosecond: 0
+        }).epochNanoseconds;
+
+        if (intervalTime.epochNanoseconds === now) {
+            intervalTime = intervalTime.add({
+                nanoseconds: Number(interval)
+            });
+
+            intervalTime = adjustIntervalTime(intervalTime, interval, epoch);
+        }
     }
 
     return intervalTime;
