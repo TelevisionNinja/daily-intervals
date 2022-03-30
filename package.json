@@ -16,5 +16,9 @@
   "bugs": {
     "url": "https://github.com/TelevisionNinja/daily-intervals/issues"
   },
-  "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme"
+  "homepage": "https://github.com/TelevisionNinja/daily-intervals#readme",
+  "keywords": [
+    "time",
+    "intervals"
+  ]
 }
