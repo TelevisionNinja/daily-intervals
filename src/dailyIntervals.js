@@ -1,11 +1,13 @@
+import { Temporal } from "@js-temporal/polyfill";
+
 // collection of IDs so that the timers can be cleared
 const IDs = new Map();
 // variable to keep track of and return a new ID
 let newID = 1;
 const rate = 0.9;
-// number of ms in a min
-const conversionFactor = 60 * 1000;
-const msInADay = conversionFactor * 60 * 24;
+// number of ns in a min
+const conversionFactor = 60n * 1000n * 1000n * 1000n;
+const nsInADay = conversionFactor * 60n * 24n;
 
 /**
  * creates a function if the callback is a string
@@ -35,54 +37,55 @@ function parseTimeStr(str) {
  * converts hrs and mins to mins
  * @param {Number} hrs 
  * @param {Number} mins 
- * @returns ms
+ * @returns ns
  */
-function convertTimeToMs(hrs, mins) {
-    return (60 * hrs + mins) * conversionFactor;
+function convertTimeToNs(hrs, mins) {
+    return (60n * BigInt(hrs) + BigInt(mins)) * conversionFactor;
 }
 
 /**
- * converts ms to hrs and mins
+ * converts ns to hrs and mins
  * 
- * @param {Number} ms 
+ * @param {BigInt} ns 
  * @returns hrs and mins object
  */
-function convertMsToHrAndMins(ms) {
-    const mins = Math.trunc(ms / conversionFactor);
+function convertNsToHrAndMins(ns) {
+    const mins = ns / conversionFactor;
 
     return {
-        hrs: Math.trunc(mins / 60),
-        mins: mins % 60
+        hrs: Number(mins / 60n),
+        mins: Number(mins % 60n)
     };
 }
 
 /**
- * converts mins to ms
+ * converts mins to ns
+ * 
  * @param {Number} mins mins
- * @returns ms
+ * @returns ns
  */
-function convertMinsToMs(mins) {
+function convertMinsToNs(mins) {
     return conversionFactor * mins;
 }
 
 /**
- * returns the time (hours and minutes) in ms
+ * returns the time (hours and minutes) in ns
  * 
- * @param {Object} time Date object
- * @returns ms
+ * @param {Object} time Temporal object
+ * @returns ns
  */
-function getTimeInMs(time) {
-    return convertTimeToMs(time.getHours(), time.getMinutes()); 
+function getTimeInNs(time) {
+    return convertTimeToNs(time.hour, time.minute); 
 }
 
 /**
  * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
- * @param {Number} currentTime utc mc
- * @param {Number} interval ms
- * @param {Number} epoch utc ms
+ * @param {Number} currentTime utc ns
+ * @param {Number} interval ns
+ * @param {Number} epoch utc ns
  * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, it should manipulate and return 'n'
- * @returns ms
+ * @returns ns
  */
 function formula(currentTime, interval, epoch, func) {
     /*
@@ -112,35 +115,58 @@ function formula(currentTime, interval, epoch, func) {
         // the result is the next time interval in the appropriate untis
     */
 
-    return Math.trunc(func((currentTime - epoch) / interval)) * interval + epoch;
+    return func(currentTime - epoch) / interval * interval + epoch;
+}
+
+/**
+ * absolute value of big int
+ * 
+ * @param {*} n 
+ * @returns big int
+ */
+function absoluteValue(n) {
+    if (n >= 0n) {
+        return n;
+    }
+
+    return -n;
 }
 
 /**
  * 
- * @returns daylight savings offset from UTC in mins
+ * @returns daylight savings offset from UTC in ns
  */
 function getDaylightSavingsOffset() {
-    const currentYr = new Date();
-    const january = new Date(currentYr.getFullYear(), 0, 1);
-    const july = new Date(currentYr.getFullYear(), 6, 1);
-    return Math.abs(Math.abs(january.getTimezoneOffset()) - Math.abs(july.getTimezoneOffset()));
+    const currentYr = Temporal.Now.zonedDateTimeISO().year;
+    const january = Temporal.Now.zonedDateTimeISO().withPlainDate({
+        year: currentYr,
+        month: 1,
+        day: 1
+    });
+    const july = Temporal.Now.zonedDateTimeISO().withPlainDate({
+        year: currentYr,
+        month: 7,
+        day: 1
+    });
+    const offset = absoluteValue(absoluteValue(january.offsetNanoseconds) - absoluteValue(july.offsetNanoseconds));
+    return Number(offset);
 }
 
 /**
  * sets the correct time for the intervalTime object
  * 
- * @param {Object} intervalTime Data object
- * @param {Number} interval ms
+ * @param {Object} intervalTime Temporal object
+ * @param {Number} interval ns
  * @param {Object} epoch object from createEpoch()
  */
 function adjustIntervalTime(intervalTime, interval, epoch) {
     // calculate the correct interval time and adjust the interval
 
-    const adjustedInterval = interval % msInADay;
+    const adjustedInterval = interval % nsInADay;
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
-        correctIntervalTime = convertMsToHrAndMins(formula(getTimeInMs(intervalTime), adjustedInterval, convertTimeToMs(epoch.hrs, epoch.mins), (n) => {
+        correctIntervalTime = convertNsToHrAndMins(formula(getTimeInNs(intervalTime), adjustedInterval, convertTimeToNs(epoch.hrs, epoch.mins), (n) => {
             return n;
         }));
     }
@@ -151,47 +177,41 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         };
     }
 
-    intervalTime.setHours(correctIntervalTime.hrs, correctIntervalTime.mins);
+    intervalTime = intervalTime.withPlainTime({
+        hour: correctIntervalTime.hrs,
+        minute: correctIntervalTime.mins
+    });
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
-    if (intervalTime.valueOf() < Date.now()) {
-        intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset());
+    if (intervalTime.epochNanoseconds < Temporal.Now.instant().epochNanoseconds) {
+        intervalTime = intervalTime.add({
+            nanoseconds: getDaylightSavingsOffset()
+        });
     }
+
+    return intervalTime;
 }
 
 /**
- * sets the next interval time based
+ * creates a time interval Temporal object
  * 
- * @param {Object} intervalTime Date object
- * @param {Number} interval ms
+ * @param {Number} interval ns
  * @param {Object} epoch object from createEpoch()
+ * @returns Temporal object
  */
-function setNextIntervalTime(intervalTime, interval, epoch) {
-    intervalTime.setTime(formula(Date.now(), interval, epoch.UTCValue, (n) => {
+function createTimeInterval(interval, epoch) {
+    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, interval, epoch.UTCValue, (n) => {
         // for negative deltas, return the nearest interval
-        if (n >= 0) {
-            return n + 1;
+        if (n >= 0n) {
+            return n + interval;
         }
 
         return n;
-    }));
+    }), Temporal.Now.timeZone());
 
     // the set time could have the wrong hrs and mins bc of daylight savings
-    adjustIntervalTime(intervalTime, interval, epoch);
-}
-
-/**
- * creates a time interval Date object
- * 
- * @param {Number} interval ms
- * @param {Object} epoch object from createEpoch()
- * @returns Date object
- */
-function createTimeInterval(interval, epoch) {
-    const intervalTime = new Date();
-    setNextIntervalTime(intervalTime, interval, epoch);
-    return intervalTime;
+    return adjustIntervalTime(nextInterval, interval, epoch);
 }
 
 /**
@@ -202,11 +222,13 @@ function createTimeInterval(interval, epoch) {
  * @returns epoch object
  */
 function createEpoch(hrs, mins) {
-    const epochDate = new Date();
-    epochDate.setHours(hrs, mins, 0, 0);
+    const epochDate = Temporal.Now.zonedDateTimeISO().withPlainTime({
+        hour: hrs,
+        minute: mins
+    });
 
     return {
-        UTCValue: epochDate.valueOf(),
+        UTCValue: epochDate.epochNanoseconds,
         hrs: hrs,
         mins: mins
     };
@@ -217,40 +239,42 @@ function createEpoch(hrs, mins) {
  * 
  * @param {Function} callback function
  * @param {Number} ID int
- * @param {Number} interval ms
- * @param {Object} intervalTime Data object
+ * @param {Number} interval ns
+ * @param {Object} intervalTime Temporal object
  * @param {Object} epoch object from createEpoch()
  */
 function customInterval(callback, ID, interval, intervalTime, epoch) {
     IDs.set(
         ID,
         setTimeout(() => {
-            const time = Date.now();
+            const time = Temporal.Now.instant().epochNanoseconds;
 
-            if (intervalTime.valueOf() <= time) {
-                intervalTime.setTime(intervalTime.valueOf() + interval);
+            if (intervalTime.epochNanoseconds <= time) {
+                intervalTime = intervalTime.add({
+                    nanoseconds: Number(interval)
+                });
 
-                if (intervalTime.valueOf() < time) {
+                if (intervalTime.epochNanoseconds < time) {
                     // system time changes greater than the interval time
                     epoch = createEpoch(epoch.hrs, epoch.mins);
-                    setNextIntervalTime(intervalTime, interval, epoch);
+                    intervalTime = createTimeInterval(interval, epoch);
                 }
                 else {
                     callback();
                     // daylight savings adjustment
-                    adjustIntervalTime(intervalTime, interval, epoch);
+                    intervalTime = adjustIntervalTime(intervalTime, interval, epoch);
                 }
             }
             else {
                 // system time changes less than the interval time
-                if (intervalTime.valueOf() - time > interval) {
+                if (intervalTime.epochNanoseconds - time > interval) {
                     epoch = createEpoch(epoch.hrs, epoch.mins);
-                    setNextIntervalTime(intervalTime, interval, epoch);
+                    intervalTime = createTimeInterval(interval, epoch);
                 }
             }
 
             customInterval(callback, ID, interval, intervalTime, epoch);
-        }, rate * (intervalTime.valueOf() - Date.now()))
+        }, rate * (intervalTime.epochMilliseconds - Temporal.Now.instant().epochMilliseconds))
     );
 }
 
@@ -268,7 +292,7 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
         interval = 1;
     }
 
-    interval = convertMinsToMs(interval);
+    interval = convertMinsToNs(BigInt(interval));
 
     const timeArr = parseTimeStr(startingTime);
     const epoch = createEpoch(timeArr[0], timeArr[1]);

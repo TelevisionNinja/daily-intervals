@@ -1,6 +1,6 @@
 {
   "name": "daily-intervals",
-  "version": "3.0.2",
+  "version": "4.0.0",
   "description": "Create intervals that are based on the time",
   "main": "./src/dailyIntervals.js",
   "type": "module",
@@ -22,6 +22,9 @@
     "intervals"
   ],
   "engines": {
-    "node": ">=12.0.0"
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.4.0"
   }
 }
