@@ -116,6 +116,17 @@ function formula(currentTime, interval, epoch, func) {
 }
 
 /**
+ * 
+ * @returns daylight savings offset from UTC in mins
+ */
+function getDaylightSavingsOffset() {
+    const currentYr = new Date();
+    const january = new Date(currentYr.getFullYear(), 0, 1);
+    const july = new Date(currentYr.getFullYear(), 6, 1);
+    return Math.abs(Math.abs(january.getTimezoneOffset()) - Math.abs(july.getTimezoneOffset()));
+}
+
+/**
  * sets the correct time for the intervalTime object
  * 
  * @param {Object} intervalTime Data object
@@ -140,16 +151,12 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         };
     }
 
-    const previousTime = intervalTime.valueOf();
-
     intervalTime.setHours(correctIntervalTime.hrs, correctIntervalTime.mins);
 
-    //-----------------------------------------------------
-
-    // go to the next interval if the adjusted interval is before the current time (ex: daylight savings where the time gets set backwards)
+    // the case where daylight savings sets the time backwards
+    // add the daylight savings offset to the interval if the adjusted interval is before the current time
     if (intervalTime.valueOf() < Date.now()) {
-        intervalTime.setTime(previousTime + interval);
-        adjustIntervalTime(intervalTime, interval, epoch);
+        intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset());
     }
 }
 
