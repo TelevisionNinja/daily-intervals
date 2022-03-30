@@ -34,7 +34,8 @@ function parseTimeStr(str) {
 }
 
 /**
- * converts hrs and mins to mins
+ * converts hrs and mins to ns
+ * 
  * @param {Number} hrs 
  * @param {Number} mins 
  * @returns ns
