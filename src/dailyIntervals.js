@@ -32,7 +32,8 @@ function parseTimeStr(str) {
 }
 
 /**
- * converts hrs and mins to mins
+ * converts hrs and mins to ms
+ * 
  * @param {Number} hrs 
  * @param {Number} mins 
  * @returns ms
@@ -58,6 +59,7 @@ function convertMsToHrAndMins(ms) {
 
 /**
  * converts mins to ms
+ * 
  * @param {Number} mins mins
  * @returns ms
  */
@@ -120,9 +122,9 @@ function formula(currentTime, interval, epoch, func) {
  * @returns daylight savings offset from UTC in mins
  */
 function getDaylightSavingsOffset() {
-    const currentYr = new Date();
-    const january = new Date(currentYr.getFullYear(), 0, 1);
-    const july = new Date(currentYr.getFullYear(), 6, 1);
+    const currentYr = new Date().getFullYear();
+    const january = new Date(currentYr, 0, 1);
+    const july = new Date(currentYr, 6, 1);
     return Math.abs(Math.abs(january.getTimezoneOffset()) - Math.abs(july.getTimezoneOffset()));
 }
 
@@ -161,7 +163,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 }
 
 /**
- * sets the next interval time based
+ * sets the next interval time
  * 
  * @param {Object} intervalTime Date object
  * @param {Number} interval ms
