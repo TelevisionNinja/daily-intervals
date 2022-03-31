@@ -8,6 +8,8 @@ const rate = 0.9;
 // number of ns in a min
 const conversionFactor = 60n * 1000n * 1000n * 1000n;
 const nsInADay = conversionFactor * 60n * 24n;
+// the max ms setTimeout can use
+const maxDelay = 2 ** 31 - 1;
 
 /**
  * creates a function if the callback is a string
@@ -62,7 +64,7 @@ function convertNsToHrAndMins(ns) {
 /**
  * converts mins to ns
  * 
- * @param {Number} mins mins
+ * @param {BigInt} mins mins
  * @returns ns
  */
 function convertMinsToNs(mins) {
@@ -82,9 +84,9 @@ function getTimeInNs(time) {
 /**
  * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
- * @param {Number} currentTime utc ns
- * @param {Number} interval ns
- * @param {Number} epoch utc ns
+ * @param {BigInt} currentTime utc ns
+ * @param {BigInt} interval ns
+ * @param {BigInt} epoch utc ns
  * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, it should manipulate and return 'n'
  * @returns ns
  */
@@ -122,7 +124,7 @@ function formula(currentTime, interval, epoch, func) {
 /**
  * absolute value of big int
  * 
- * @param {*} n 
+ * @param {BigInt} n 
  * @returns big int
  */
 function absoluteValue(n) {
@@ -157,7 +159,7 @@ function getDaylightSavingsOffset() {
  * sets the correct time for the intervalTime object
  * 
  * @param {Object} intervalTime Temporal object
- * @param {Number} interval ns
+ * @param {BigInt} interval ns
  * @param {Object} epoch object from createEpoch()
  */
 function adjustIntervalTime(intervalTime, interval, epoch) {
@@ -208,7 +210,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 /**
  * creates a time interval Temporal object
  * 
- * @param {Number} interval ns
+ * @param {BigInt} interval ns
  * @param {Object} epoch object from createEpoch()
  * @returns Temporal object
  */
@@ -247,11 +249,26 @@ function createEpoch(hrs, mins) {
 }
 
 /**
+ * 
+ * @param {Number} intervalTime 
+ * @returns ms
+ */
+function calculateDelay(intervalTime) {
+    const difference = intervalTime - Temporal.Now.instant().epochMilliseconds;
+
+    if (difference > maxDelay) {
+        return maxDelay;
+    }
+
+    return difference;
+}
+
+/**
  * calls timeout repeatedly
  * 
  * @param {Function} callback function
  * @param {Number} ID int
- * @param {Number} interval ns
+ * @param {BigInt} interval ns
  * @param {Object} intervalTime Temporal object
  * @param {Object} epoch object from createEpoch()
  */
@@ -286,7 +303,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
 
             customInterval(callback, ID, interval, intervalTime, epoch);
-        }, rate * (intervalTime.epochMilliseconds - Temporal.Now.instant().epochMilliseconds))
+        }, rate * calculateDelay(intervalTime.epochMilliseconds))
     );
 }
 
