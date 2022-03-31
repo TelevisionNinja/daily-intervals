@@ -97,19 +97,17 @@ function formula(currentTime, interval, epoch, func) {
         // remove offset (startTime)
         delta = currentTime - startTime
 
-        n = delta / interval
-
         // func to get the next interval
-        func(n) {
+        func(d) {
             // for negative deltas, return the nearest interval
-            if (n >= 0) {
-                return n + 1;
+            if (d >= 0) {
+                return d + interval;
             }
 
-            return n;
+            return d;
         }
 
-        n = func(n)
+        n = func(delta) / interval
 
         newIntervalTime = interval * n + startTime
 
