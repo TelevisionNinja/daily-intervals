@@ -282,7 +282,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
 }
 
 /**
- * calls timeout repeatedly
+ * starts an interval based on the time
  * 
  * @param {Function} callback func to execute at every interval
  * @param {Number} interval mins between intervals, default: 1
