@@ -56,8 +56,8 @@ function convertNsToHrAndMins(ns) {
     const mins = ns / conversionFactor;
 
     return {
-        hrs: Number(mins / 60n),
-        mins: Number(mins % 60n)
+        hour: Number(mins / 60n),
+        minute: Number(mins % 60n)
     };
 }
 
@@ -87,7 +87,7 @@ function getTimeInNs(time) {
  * @param {BigInt} currentTime utc ns
  * @param {BigInt} interval ns
  * @param {BigInt} epoch utc ns
- * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, it should manipulate and return 'n'
+ * @param {Function} func takes a parameter 'n', 'n' is the difference bettwen the current time and epoch, it should manipulate and return 'n'
  * @returns ns
  */
 function formula(currentTime, interval, epoch, func) {
@@ -99,19 +99,17 @@ function formula(currentTime, interval, epoch, func) {
         // remove offset (startTime)
         delta = currentTime - startTime
 
-        n = delta / interval
-
         // func to get the next interval
-        func(n) {
+        func(d) {
             // for negative deltas, return the nearest interval
-            if (n >= 0) {
-                return n + 1;
+            if (d >= 0) {
+                return d + interval;
             }
 
-            return n;
+            return d;
         }
 
-        n = func(n)
+        n = func(delta) / interval
 
         newIntervalTime = interval * n + startTime
 
@@ -140,13 +138,16 @@ function absoluteValue(n) {
  * @returns daylight savings offset from UTC in ns
  */
 function getDaylightSavingsOffset() {
-    const currentYr = Temporal.Now.zonedDateTimeISO().year;
-    const january = Temporal.Now.zonedDateTimeISO().withPlainDate({
+    const currentYr = Temporal.Now.plainDateISO().year;
+    const timeZone = Temporal.Now.timeZone();
+    const january = Temporal.ZonedDateTime.from({
+        timeZone: timeZone,
         year: currentYr,
         month: 1,
         day: 1
     });
-    const july = Temporal.Now.zonedDateTimeISO().withPlainDate({
+    const july = Temporal.ZonedDateTime.from({
+        timeZone: timeZone,
         year: currentYr,
         month: 7,
         day: 1
@@ -169,21 +170,18 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
-        correctIntervalTime = convertNsToHrAndMins(formula(getTimeInNs(intervalTime), adjustedInterval, convertTimeToNs(epoch.hrs, epoch.mins), (n) => {
+        correctIntervalTime = convertNsToHrAndMins(formula(getTimeInNs(intervalTime), adjustedInterval, getTimeInNs(epoch), (n) => {
             return n;
         }));
     }
     else {
         correctIntervalTime = {
-            hrs: epoch.hrs,
-            mins: epoch.mins
+            hour: epoch.hour,
+            minute: epoch.minute
         };
     }
 
-    intervalTime = intervalTime.withPlainTime({
-        hour: correctIntervalTime.hrs,
-        minute: correctIntervalTime.mins
-    });
+    intervalTime = intervalTime.withPlainTime(correctIntervalTime);
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
@@ -243,8 +241,8 @@ function createEpoch(hrs, mins) {
 
     return {
         UTCValue: epochDate.epochNanoseconds,
-        hrs: hrs,
-        mins: mins
+        hour: hrs,
+        minute: mins
     };
 }
 
@@ -285,7 +283,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
 
                 if (intervalTime.epochNanoseconds < time) {
                     // system time changes greater than the interval time
-                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                    epoch = createEpoch(epoch.hour, epoch.minute);
                     intervalTime = createTimeInterval(interval, epoch);
                 }
                 else {
@@ -297,7 +295,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             else {
                 // system time changes less than the interval time
                 if (intervalTime.epochNanoseconds - time > interval) {
-                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                    epoch = createEpoch(epoch.hour, epoch.minute);
                     intervalTime = createTimeInterval(interval, epoch);
                 }
             }
