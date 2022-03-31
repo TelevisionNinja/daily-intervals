@@ -6,6 +6,8 @@ const rate = 0.9;
 // number of ms in a min
 const conversionFactor = 60 * 1000;
 const msInADay = conversionFactor * 60 * 24;
+// the max ms setTimeout can use
+const maxDelay = 2 ** 31 - 1;
 
 /**
  * creates a function if the callback is a string
@@ -223,6 +225,21 @@ function createEpoch(hrs, mins) {
 }
 
 /**
+ * 
+ * @param {Number} intervalTime ms
+ * @returns ms
+ */
+function calculateDelay(intervalTime) {
+    const difference = intervalTime - Date.now();
+
+    if (difference > maxDelay) {
+        return maxDelay;
+    }
+
+    return difference;
+}
+
+/**
  * calls timeout repeatedly
  * 
  * @param {Function} callback function
@@ -260,7 +277,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
 
             customInterval(callback, ID, interval, intervalTime, epoch);
-        }, rate * (intervalTime.valueOf() - Date.now()))
+        }, rate * calculateDelay(intervalTime.valueOf()))
     );
 }
 
