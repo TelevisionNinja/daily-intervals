@@ -36,18 +36,18 @@ function parseTimeStr(str) {
 }
 
 /**
- * converts hrs and mins to ns
+ * converts hrs and mins to mins
  * 
  * @param {Number} hrs 
  * @param {Number} mins 
- * @returns ns
+ * @returns mins
  */
 function convertTimeToMins(hrs, mins) {
     return 60 * hrs + mins;
 }
 
 /**
- * converts ns to hrs and mins
+ * converts mins to hrs and mins
  * 
  * @param {Number} mins 
  * @returns hrs and mins object
@@ -60,10 +60,10 @@ function convertMinsToHrAndMins(mins) {
 }
 
 /**
- * returns the time (hours and minutes) in ns
+ * returns the time (hours and minutes) in mins
  * 
- * @param {Object} time Temporal object
- * @returns ns
+ * @param {Temporal.ZonedDateTime} time Temporal object
+ * @returns mins
  */
 function getTimeInMins(time) {
     return convertTimeToMins(time.hour, time.minute); 
@@ -93,7 +93,7 @@ function getZonedDateTime() {
 
 /**
  * 
- * @param {*} date Temporal zonedDateTime object
+ * @param {Temporal.ZonedDateTime} date Temporal zonedDateTime object
  * @returns absolute value of daylight savings offset in ns
  */
 function getDaylightSavingsOffset(date) {
@@ -113,11 +113,11 @@ function getDaylightSavingsOffset(date) {
 /**
  * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
- * @param {BigInt} currentTime utc ns
- * @param {BigInt} interval ns
- * @param {BigInt} epoch utc ns
+ * @param {Number | BigInt} currentTime units since utc
+ * @param {Number | BigInt} interval 
+ * @param {Number | BigInt} epoch units since utc
  * @param {Function} func takes a parameter 'n', 'n' is the difference bettwen the current time and epoch, it should manipulate and return 'n'
- * @returns ns
+ * @returns total time (in the numbers units) since utc epoch
  */
 function formula(currentTime, interval, epoch, func) {
     /*
@@ -151,9 +151,10 @@ function formula(currentTime, interval, epoch, func) {
 /**
  * sets the correct time for the intervalTime object
  * 
- * @param {Object} intervalTime Temporal object
- * @param {BigInt} interval ns
+ * @param {Temporal.ZonedDateTime} intervalTime Temporal object
+ * @param {Number} interval mins
  * @param {Object} epoch object from createEpoch()
+ * @returns Temporal object
  */
 function adjustIntervalTime(intervalTime, interval, epoch) {
     // calculate the correct interval time and adjust the interval
@@ -200,7 +201,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 /**
  * creates a time interval Temporal object
  * 
- * @param {BigInt} interval ns
+ * @param {Number} interval mins
  * @param {Object} epoch object from createEpoch()
  * @returns Temporal object
  */
@@ -222,26 +223,26 @@ function createTimeInterval(interval, epoch) {
 /**
  * create a starting time for the intervals
  * 
- * @param {Number} hrs 
- * @param {Number} mins 
+ * @param {Number} hr 
+ * @param {Number} min 
  * @returns epoch object
  */
-function createEpoch(hrs, mins) {
+function createEpoch(hr, min) {
     const epochDate = getZonedDateTime().withPlainTime({
-        hour: hrs,
-        minute: mins
+        hour: hr,
+        minute: min
     });
 
     return {
         UTCValue: epochDate.epochNanoseconds,
-        hour: hrs,
-        minute: mins
+        hour: hr,
+        minute: min
     };
 }
 
 /**
  * 
- * @param {Number} intervalTime 
+ * @param {Number} intervalTime ms
  * @returns ms
  */
 function calculateDelay(intervalTime) {
@@ -259,8 +260,8 @@ function calculateDelay(intervalTime) {
  * 
  * @param {Function} callback function
  * @param {Number} ID int
- * @param {BigInt} interval ns
- * @param {Object} intervalTime Temporal object
+ * @param {Number} interval mins
+ * @param {Temporal.ZonedDateTime} intervalTime Temporal object
  * @param {Object} epoch object from createEpoch()
  */
 function customInterval(callback, ID, interval, intervalTime, epoch) {
