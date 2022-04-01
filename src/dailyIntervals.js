@@ -43,7 +43,7 @@ function parseTimeStr(str) {
  * @returns ns
  */
 function convertTimeToNs(hrs, mins) {
-    return (60n * BigInt(hrs) + BigInt(mins)) * conversionFactor;
+    return BigInt(60 * hrs + mins) * conversionFactor;
 }
 
 /**
