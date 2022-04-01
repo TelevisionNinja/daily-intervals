@@ -119,13 +119,40 @@ function formula(currentTime, interval, epoch, func) {
 
 /**
  * 
+ * @param {*} date Date object
+ */
+function subtractAMonth(date) {
+    const current = date.getMonth();
+
+    while (current === date.getMonth()) {
+        date.setMonth(date.getMonth() - 1);
+    }
+}
+
+/**
+ * 
  * @returns daylight savings offset from UTC in mins
  */
 function getDaylightSavingsOffset() {
-    const currentYr = new Date().getFullYear();
-    const january = new Date(currentYr, 0, 1);
-    const july = new Date(currentYr, 6, 1);
-    return Math.abs(Math.abs(january.getTimezoneOffset()) - Math.abs(july.getTimezoneOffset()));
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const compare = new Date(currentDate);
+
+    // going back to a previous month that has less days will cause the date object to still have the same month
+    subtractAMonth(compare);
+
+    while (currentMonth !== compare.getMonth()) {
+        const dateOffset = currentDate.getTimezoneOffset();
+        const compareOffset = compare.getTimezoneOffset();
+
+        if (dateOffset !== compareOffset) {
+            return Math.abs(Math.abs(dateOffset) - Math.abs(compareOffset));
+        }
+
+        subtractAMonth(compare);
+    }
+
+    return 0;
 }
 
 /**
