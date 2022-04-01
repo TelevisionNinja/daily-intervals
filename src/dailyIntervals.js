@@ -231,10 +231,10 @@ function calculateDelay(intervalTime) {
     const difference = intervalTime - Date.now();
 
     if (difference > maxDelay) {
-        return maxDelay;
+        return rate * maxDelay;
     }
 
-    return difference;
+    return rate * difference;
 }
 
 /**
@@ -275,7 +275,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
 
             customInterval(callback, ID, interval, intervalTime, epoch);
-        }, rate * calculateDelay(intervalTime.valueOf()))
+        }, calculateDelay(intervalTime.valueOf()))
     );
 }
 
