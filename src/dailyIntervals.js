@@ -7,7 +7,7 @@ let newID = 1;
 const rate = 0.9;
 // number of ns in a min
 const conversionFactor = 60n * 1000n * 1000n * 1000n;
-const nsInADay = conversionFactor * 60n * 24n;
+const minsInADay = 60 * 24;
 // the max ms setTimeout can use
 const maxDelay = 2 ** 31 - 1;
 
@@ -42,33 +42,21 @@ function parseTimeStr(str) {
  * @param {Number} mins 
  * @returns ns
  */
-function convertTimeToNs(hrs, mins) {
-    return BigInt(60 * hrs + mins) * conversionFactor;
+function convertTimeToMins(hrs, mins) {
+    return 60 * hrs + mins;
 }
 
 /**
  * converts ns to hrs and mins
  * 
- * @param {BigInt} ns 
+ * @param {Number} mins 
  * @returns hrs and mins object
  */
-function convertNsToHrAndMins(ns) {
-    const mins = ns / conversionFactor;
-
+function convertMinsToHrAndMins(mins) {
     return {
-        hour: Number(mins / 60n),
-        minute: Number(mins % 60n)
+        hour: Math.trunc(mins / 60),
+        minute: mins % 60
     };
-}
-
-/**
- * converts mins to ns
- * 
- * @param {BigInt} mins mins
- * @returns ns
- */
-function convertMinsToNs(mins) {
-    return conversionFactor * mins;
 }
 
 /**
@@ -77,8 +65,8 @@ function convertMinsToNs(mins) {
  * @param {Object} time Temporal object
  * @returns ns
  */
-function getTimeInNs(time) {
-    return convertTimeToNs(time.hour, time.minute); 
+function getTimeInMins(time) {
+    return convertTimeToMins(time.hour, time.minute); 
 }
 
 /**
@@ -86,7 +74,13 @@ function getTimeInNs(time) {
  * @returns the system calendar
  */
 function getCalendar() {
-    return new Intl.DateTimeFormat().resolvedOptions().calendar;
+    const calendar = new Intl.DateTimeFormat().resolvedOptions().calendar;
+
+    if (calendar === 'gregory') {
+        return 'iso8601';
+    }
+
+    return calendar;
 }
 
 /**
@@ -94,13 +88,7 @@ function getCalendar() {
  * @returns Temporal zonedDateTime object using the system's calendar
  */
 function getZonedDateTime() {
-    const calendar = getCalendar();
-
-    if (calendar === 'gregory') {
-        return Temporal.Now.zonedDateTimeISO();
-    }
-
-    return Temporal.Now.zonedDateTime(calendar);
+    return Temporal.Now.zonedDateTime(getCalendar());
 }
 
 /**
@@ -170,11 +158,11 @@ function formula(currentTime, interval, epoch, func) {
 function adjustIntervalTime(intervalTime, interval, epoch) {
     // calculate the correct interval time and adjust the interval
 
-    const adjustedInterval = interval % nsInADay;
+    const adjustedInterval = interval % minsInADay;
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
-        correctIntervalTime = convertNsToHrAndMins(formula(getTimeInNs(intervalTime), adjustedInterval, getTimeInNs(epoch), (n) => {
+        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (n) => {
             return n;
         }));
     }
@@ -199,7 +187,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         // this handles the case where the interval was started on the time of the daylight savings execution time
         if (intervalTime.epochNanoseconds <= now.epochNanoseconds) {
             intervalTime = intervalTime.add({
-                nanoseconds: Number(interval)
+                minutes: interval
             });
 
             intervalTime = adjustIntervalTime(intervalTime, interval, epoch);
@@ -217,14 +205,15 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
  * @returns Temporal object
  */
 function createTimeInterval(interval, epoch) {
-    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, interval, epoch.UTCValue, (n) => {
+    const bigIntInterval = BigInt(interval) * conversionFactor;
+    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, bigIntInterval, epoch.UTCValue, (n) => {
         // for negative deltas, return the nearest interval
         if (n >= 0n) {
-            return n + interval;
+            return n + bigIntInterval;
         }
 
         return n;
-    }), Temporal.Now.timeZone());
+    }), Temporal.Now.timeZone(), getCalendar());
 
     // the set time could have the wrong hrs and mins bc of daylight savings
     return adjustIntervalTime(nextInterval, interval, epoch);
@@ -282,7 +271,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
 
             if (intervalTime.epochNanoseconds <= time) {
                 intervalTime = intervalTime.add({
-                    nanoseconds: Number(interval)
+                    minutes: interval
                 });
 
                 if (intervalTime.epochNanoseconds < time) {
@@ -322,8 +311,6 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
     if (interval < 1) {
         interval = 1;
     }
-
-    interval = convertMinsToNs(BigInt(interval));
 
     const timeArr = parseTimeStr(startingTime);
     const epoch = createEpoch(timeArr[0], timeArr[1]);
