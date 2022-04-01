@@ -119,7 +119,7 @@ function formula(currentTime, interval, epoch, func) {
 
 /**
  * 
- * @param {*} date Date object
+ * @param {Object} date Date object
  */
 function subtractAMonth(date) {
     const current = date.getMonth();
@@ -131,18 +131,18 @@ function subtractAMonth(date) {
 
 /**
  * 
- * @returns daylight savings offset from UTC in mins
+ * @param {Object} date Date object
+ * @returns absolute value of daylight savings offset in mins
  */
-function getDaylightSavingsOffset() {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const compare = new Date(currentDate);
+function getDaylightSavingsOffset(date) {
+    const currentMonth = date.getMonth();
+    const compare = new Date(date);
 
     // going back to a previous month that has less days will cause the date object to still have the same month
     subtractAMonth(compare);
 
     while (currentMonth !== compare.getMonth()) {
-        const dateOffset = currentDate.getTimezoneOffset();
+        const dateOffset = date.getTimezoneOffset();
         const compareOffset = compare.getTimezoneOffset();
 
         if (dateOffset !== compareOffset) {
@@ -184,13 +184,13 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
-    const now = Date.now();
+    const now = new Date();
 
-    if (intervalTime.valueOf() < now) {
-        intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset());
+    if (intervalTime.valueOf() < now.valueOf()) {
+        intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset(now));
 
         // this handles the case where the interval was started on the time of the daylight savings execution time
-        if (intervalTime.valueOf() <= now) {
+        if (intervalTime.valueOf() <= now.valueOf()) {
             intervalTime.setTime(intervalTime.valueOf() + interval);
             adjustIntervalTime(intervalTime, interval, epoch);
         }
