@@ -82,6 +82,47 @@ function getTimeInNs(time) {
 }
 
 /**
+ * 
+ * @returns the system calendar
+ */
+function getCalendar() {
+    return new Intl.DateTimeFormat().resolvedOptions().calendar;
+}
+
+/**
+ * 
+ * @returns Temporal zonedDateTime object using the system's calendar
+ */
+function getZonedDateTime() {
+    const calendar = getCalendar();
+
+    if (calendar === 'gregory') {
+        return Temporal.Now.zonedDateTimeISO();
+    }
+
+    return Temporal.Now.zonedDateTime(calendar);
+}
+
+/**
+ * 
+ * @param {*} date Temporal zonedDateTime object
+ * @returns absolute value of daylight savings offset in ns
+ */
+function getDaylightSavingsOffset(date) {
+    for (let i = 1; i < date.monthsInYear; i++) {
+        const compare = date.subtract({
+            months: i
+        });
+
+        if (date.offsetNanoseconds !== compare.offsetNanoseconds) {
+            return Math.abs(Math.abs(date.offsetNanoseconds) - Math.abs(compare.offsetNanoseconds));
+        }
+    }
+
+    return 0;
+}
+
+/**
  * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
  * @param {BigInt} currentTime utc ns
@@ -120,43 +161,6 @@ function formula(currentTime, interval, epoch, func) {
 }
 
 /**
- * absolute value of big int
- * 
- * @param {BigInt} n 
- * @returns big int
- */
-function absoluteValue(n) {
-    if (n >= 0n) {
-        return n;
-    }
-
-    return -n;
-}
-
-/**
- * 
- * @returns daylight savings offset from UTC in ns
- */
-function getDaylightSavingsOffset() {
-    const currentYr = Temporal.Now.plainDateISO().year;
-    const timeZone = Temporal.Now.timeZone();
-    const january = Temporal.ZonedDateTime.from({
-        timeZone: timeZone,
-        year: currentYr,
-        month: 1,
-        day: 1
-    });
-    const july = Temporal.ZonedDateTime.from({
-        timeZone: timeZone,
-        year: currentYr,
-        month: 7,
-        day: 1
-    });
-    const offset = absoluteValue(absoluteValue(january.offsetNanoseconds) - absoluteValue(july.offsetNanoseconds));
-    return Number(offset);
-}
-
-/**
  * sets the correct time for the intervalTime object
  * 
  * @param {Object} intervalTime Temporal object
@@ -185,15 +189,15 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
-    const now = Temporal.Now.instant().epochNanoseconds;
+    const now = getZonedDateTime();
 
-    if (intervalTime.epochNanoseconds < now) {
+    if (intervalTime.epochNanoseconds < now.epochNanoseconds) {
         intervalTime = intervalTime.add({
-            nanoseconds: getDaylightSavingsOffset()
+            nanoseconds: getDaylightSavingsOffset(now)
         });
 
         // this handles the case where the interval was started on the time of the daylight savings execution time
-        if (intervalTime.epochNanoseconds <= now) {
+        if (intervalTime.epochNanoseconds <= now.epochNanoseconds) {
             intervalTime = intervalTime.add({
                 nanoseconds: Number(interval)
             });
@@ -234,7 +238,7 @@ function createTimeInterval(interval, epoch) {
  * @returns epoch object
  */
 function createEpoch(hrs, mins) {
-    const epochDate = Temporal.Now.zonedDateTimeISO().withPlainTime({
+    const epochDate = getZonedDateTime().withPlainTime({
         hour: hrs,
         minute: mins
     });
@@ -255,10 +259,10 @@ function calculateDelay(intervalTime) {
     const difference = intervalTime - Temporal.Now.instant().epochMilliseconds;
 
     if (difference > maxDelay) {
-        return maxDelay;
+        return rate * maxDelay;
     }
 
-    return difference;
+    return rate * difference;
 }
 
 /**
@@ -301,7 +305,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
 
             customInterval(callback, ID, interval, intervalTime, epoch);
-        }, rate * calculateDelay(intervalTime.epochMilliseconds))
+        }, calculateDelay(intervalTime.epochMilliseconds))
     );
 }
 
