@@ -1,6 +1,6 @@
 {
   "name": "daily-intervals",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Create intervals that are based on the time",
   "main": "./src/dailyIntervals.js",
   "type": "module",
