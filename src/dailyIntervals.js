@@ -168,6 +168,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         };
     }
 
+    // the case where daylight savings sets the time forwards
     intervalTime.setHours(correctIntervalTime.hrs, correctIntervalTime.mins);
 
     // the case where daylight savings sets the time backwards
@@ -268,7 +269,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             const time = Date.now();
 
             if (intervalTime.valueOf() <= time) {
-                intervalTime.setMinutes(intervalTime.getMinutes() + interval);
+                intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + interval);
 
                 if (intervalTime.valueOf() < time) {
                     // system time changes greater than the interval time
