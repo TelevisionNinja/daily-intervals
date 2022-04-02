@@ -174,6 +174,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
         };
     }
 
+    // the case where daylight savings sets the time forwards
     intervalTime = intervalTime.withPlainTime(correctIntervalTime);
 
     // the case where daylight savings sets the time backwards
