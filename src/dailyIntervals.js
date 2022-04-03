@@ -138,7 +138,7 @@ function formula(currentTime, interval, epoch, func) {
             return d / n;
         }
 
-        n = func(delta) / interval
+        n = func(delta, interval)
 
         newIntervalTime = interval * n + startTime
 
