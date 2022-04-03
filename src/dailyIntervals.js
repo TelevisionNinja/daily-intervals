@@ -116,7 +116,7 @@ function getDaylightSavingsOffset(date) {
  * @param {Number | BigInt} currentTime units since utc
  * @param {Number | BigInt} interval 
  * @param {Number | BigInt} epoch units since utc
- * @param {Function} func takes a parameter 'n', 'n' is the difference bettwen the current time and epoch, it should manipulate and return 'n'
+ * @param {Function} func takes a parameter 'd' and 'n', 'd' is the difference bettwen the current time and epoch, 'n' is the interval amount, it should manipulate 'd' and 'n' and return the desired nth interval
  * @returns total time (in the numbers units) since utc epoch
  */
 function formula(currentTime, interval, epoch, func) {
@@ -129,13 +129,13 @@ function formula(currentTime, interval, epoch, func) {
         delta = currentTime - startTime
 
         // func to get the next interval
-        func(d) {
+        func(d, n) {
             // for negative deltas, return the nearest interval
             if (d >= 0) {
-                return d + interval;
+                return d / n + 1;
             }
 
-            return d;
+            return d / n;
         }
 
         n = func(delta) / interval
@@ -145,7 +145,7 @@ function formula(currentTime, interval, epoch, func) {
         // the result is the next time interval in the appropriate untis
     */
 
-    return func(currentTime - epoch) / interval * interval + epoch;
+    return func(currentTime - epoch, interval) * interval + epoch;
 }
 
 /**
@@ -163,8 +163,8 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
-        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (n) => {
-            return n;
+        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (d, n) => {
+            return Math.trunc(d / n);
         }));
     }
     else {
@@ -207,14 +207,13 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
  * @returns Temporal object
  */
 function createTimeInterval(interval, epoch) {
-    const bigIntInterval = BigInt(interval) * conversionFactor;
-    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, bigIntInterval, epoch.UTCValue, (n) => {
+    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, BigInt(interval) * conversionFactor, epoch.UTCValue, (d, n) => {
         // for negative deltas, return the nearest interval
-        if (n >= 0n) {
-            return n + bigIntInterval;
+        if (d >= 0n) {
+            return d / n + 1n;
         }
 
-        return n;
+        return d / n;
     }), Temporal.Now.timeZone(), getCalendar());
 
     // the set time could have the wrong hrs and mins bc of daylight savings
