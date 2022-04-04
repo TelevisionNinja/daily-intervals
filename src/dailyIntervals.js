@@ -286,7 +286,7 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
             else {
                 // system time changes less than the interval time
-                if (intervalTime.valueOf() - time > interval) {
+                if (intervalTime.valueOf() - time > interval * conversionFactor) {
                     epoch = createEpoch(epoch.hrs, epoch.mins);
                     setNextIntervalTime(intervalTime, interval, epoch);
                 }
