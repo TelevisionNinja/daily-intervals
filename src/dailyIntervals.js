@@ -5,7 +5,7 @@ let newID = 1;
 const rate = 0.9;
 // number of ms in a min
 const conversionFactor = 60 * 1000;
-const minsInADay = 60 * 24;
+const minsInOneDay = 60 * 24;
 // the max ms setTimeout can use
 const maxDelay = 2 ** 31 - 1;
 
@@ -34,31 +34,31 @@ function parseTimeStr(str) {
 }
 
 /**
- * converts hrs and mins to mins
+ * converts hr and min to mins
  * 
- * @param {Number} hrs 
- * @param {Number} mins 
+ * @param {Number} hour 
+ * @param {Number} minute 
  * @returns mins
  */
-function convertTimeToMins(hrs, mins) {
-    return 60 * hrs + mins;
+function convertTimeToMins(hour, minute) {
+    return 60 * hour + minute;
 }
 
 /**
- * converts mins to hrs and mins
+ * converts mins to hr and min
  * 
  * @param {Number} mins 
- * @returns hrs and mins object
+ * @returns hr and min object
  */
-function convertMinsToHrAndMins(mins) {
+function convertMinsToHrAndMin(mins) {
     return {
-        hrs: Math.trunc(mins / 60),
-        mins: mins % 60
+        hour: Math.trunc(mins / 60),
+        minute: mins % 60
     };
 }
 
 /**
- * returns the time (hours and minutes) in mins
+ * returns the time (hour and minute) in mins
  * 
  * @param {Date} time Date object
  * @returns mins
@@ -71,7 +71,7 @@ function getTimeInMins(time) {
  * calculates the interval time based on a given current time, interval amount, and the interval starting time
  * 
  * @param {Number} currentTime units since utc
- * @param {Number} interval mins
+ * @param {Number} interval units
  * @param {Number} epoch units since utc
  * @param {Function} func takes a parameter 'n', 'n' is the n-th interval, it should manipulate and return 'n'
  * @returns total time (in the numbers units) since utc epoch
@@ -80,7 +80,6 @@ function formula(currentTime, interval, epoch, func) {
     /*
         // formula
         // 'interval' and 'startTime' are in some selected unit
-        // division is integer division
 
         // remove offset (startTime)
         delta = currentTime - startTime
@@ -97,7 +96,7 @@ function formula(currentTime, interval, epoch, func) {
             return n;
         }
 
-        n = func(n)
+        n = truncate(func(n))
 
         newIntervalTime = interval * n + startTime
 
@@ -149,29 +148,29 @@ function getDaylightSavingsOffset(date) {
  * sets the correct time for the intervalTime object
  * 
  * @param {Date} intervalTime Data object
- * @param {Number} interval mins
+ * @param {Number} interval ms
  * @param {Object} epoch object from createEpoch()
  */
 function adjustIntervalTime(intervalTime, interval, epoch) {
     // calculate the correct interval time and adjust the interval
 
-    const adjustedInterval = interval % minsInADay;
+    const adjustedInterval = Math.trunc(interval / conversionFactor) % minsInOneDay;
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
-        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, convertTimeToMins(epoch.hrs, epoch.mins), (n) => {
+        correctIntervalTime = convertMinsToHrAndMin(formula(getTimeInMins(intervalTime), adjustedInterval, convertTimeToMins(epoch.hour, epoch.minute), (n) => {
             return n;
         }));
     }
     else {
         correctIntervalTime = {
-            hrs: epoch.hrs,
-            mins: epoch.mins
+            hour: epoch.hour,
+            minute: epoch.minute
         };
     }
 
     // the case where daylight savings sets the time forwards
-    intervalTime.setHours(correctIntervalTime.hrs, correctIntervalTime.mins);
+    intervalTime.setHours(correctIntervalTime.hour, correctIntervalTime.minute);
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
@@ -182,7 +181,7 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 
         // this handles the case where the interval was started on the time of the daylight savings execution time
         if (intervalTime.valueOf() <= now.valueOf()) {
-            intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + interval);
+            intervalTime.setTime(intervalTime.valueOf() + interval);
             adjustIntervalTime(intervalTime, interval, epoch);
         }
     }
@@ -192,11 +191,11 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
  * sets the next interval time
  * 
  * @param {Date} intervalTime Date object
- * @param {Number} interval mins
+ * @param {Number} interval ms
  * @param {Object} epoch object from createEpoch()
  */
 function setNextIntervalTime(intervalTime, interval, epoch) {
-    intervalTime.setTime(formula(Date.now(), interval * conversionFactor, epoch.UTCValue, (n) => {
+    intervalTime.setTime(formula(Date.now(), interval, epoch.UTCValue, (n) => {
         // for negative deltas, return the nearest interval
         if (n >= 0) {
             return n + 1;
@@ -212,7 +211,7 @@ function setNextIntervalTime(intervalTime, interval, epoch) {
 /**
  * creates a time interval Date object
  * 
- * @param {Number} interval mins
+ * @param {Number} interval ms
  * @param {Object} epoch object from createEpoch()
  * @returns Date object
  */
@@ -225,18 +224,15 @@ function createTimeInterval(interval, epoch) {
 /**
  * create a starting time for the intervals
  * 
- * @param {Number} hrs 
- * @param {Number} mins 
+ * @param {Number} hour 
+ * @param {Number} minute 
  * @returns epoch object
  */
-function createEpoch(hrs, mins) {
-    const epochDate = new Date();
-    epochDate.setHours(hrs, mins, 0, 0);
-
+function createEpoch(hour, minute) {
     return {
-        UTCValue: epochDate.valueOf(),
-        hrs: hrs,
-        mins: mins
+        UTCValue: new Date().setHours(hour, minute, 0, 0),
+        hour: hour,
+        minute: minute
     };
 }
 
@@ -260,7 +256,7 @@ function calculateDelay(intervalTime) {
  * 
  * @param {Function} callback function
  * @param {Number} ID int
- * @param {Number} interval mins
+ * @param {Number} interval ms
  * @param {Date} intervalTime Data object
  * @param {Object} epoch object from createEpoch()
  */
@@ -269,13 +265,14 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
         ID,
         setTimeout(() => {
             const time = Date.now();
+            const utcIntervalTime = intervalTime.valueOf();
 
-            if (intervalTime.valueOf() <= time) {
-                intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + interval);
+            if (utcIntervalTime <= time) {
+                intervalTime.setTime(utcIntervalTime + interval);
 
                 if (intervalTime.valueOf() < time) {
                     // system time changes greater than the interval time
-                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                    epoch = createEpoch(epoch.hour, epoch.minute);
                     setNextIntervalTime(intervalTime, interval, epoch);
                 }
                 else {
@@ -286,8 +283,8 @@ function customInterval(callback, ID, interval, intervalTime, epoch) {
             }
             else {
                 // system time changes less than the interval time
-                if (intervalTime.valueOf() - time > interval * conversionFactor) {
-                    epoch = createEpoch(epoch.hrs, epoch.mins);
+                if (utcIntervalTime - time > interval) {
+                    epoch = createEpoch(epoch.hour, epoch.minute);
                     setNextIntervalTime(intervalTime, interval, epoch);
                 }
             }
@@ -310,6 +307,8 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
     if (interval < 1) {
         interval = 1;
     }
+
+    interval *= conversionFactor;
 
     const timeArr = parseTimeStr(startingTime);
     const epoch = createEpoch(timeArr[0], timeArr[1]);
