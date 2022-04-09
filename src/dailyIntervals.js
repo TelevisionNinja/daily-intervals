@@ -97,17 +97,26 @@ function getZonedDateTime() {
  * @returns absolute value of daylight savings offset in ns
  */
 function getDaylightSavingsOffset(date) {
-    for (let i = 1; i < date.monthsInYear; i++) {
-        const compare = date.subtract({
-            months: i
-        });
+    const shiftDay = date.timeZone.getPreviousTransition(date);
 
-        if (date.offsetNanoseconds !== compare.offsetNanoseconds) {
-            return Math.abs(Math.abs(date.offsetNanoseconds) - Math.abs(compare.offsetNanoseconds));
-        }
+    if (shiftDay === null) {
+        return 0;
     }
 
-    return 0;
+    const shiftDayZonedDate = shiftDay.toZonedDateTime({
+        calendar: date.calendar,
+        timeZone: date.timeZone
+    });
+
+    const previousOffest = shiftDayZonedDate.subtract({
+        days: 1
+    }).offsetNanoseconds;
+
+    const nextOffest = shiftDayZonedDate.add({
+        days: 1
+    }).offsetNanoseconds;
+
+    return Math.abs(nextOffest - previousOffest);
 }
 
 /**
@@ -152,14 +161,14 @@ function formula(currentTime, interval, epoch, func) {
  * sets the correct time for the intervalTime object
  * 
  * @param {Temporal.ZonedDateTime} intervalTime Temporal object
- * @param {Number} interval mins
+ * @param {BigInt} interval ns
  * @param {Object} epoch object from createEpoch()
+ * @param {Number} adjustedInterval mins
+ * @param {Temporal.ZonedDateTime} currentTime Temporal object
  * @returns Temporal object
  */
-function adjustIntervalTime(intervalTime, interval, epoch) {
+function adjust(intervalTime, interval, epoch, adjustedInterval, currentTime) {
     // calculate the correct interval time and adjust the interval
-
-    const adjustedInterval = interval % minsInADay;
     let correctIntervalTime = undefined;
 
     if (adjustedInterval > 0) {
@@ -179,20 +188,18 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 
     // the case where daylight savings sets the time backwards
     // add the daylight savings offset to the interval if the adjusted interval is before the current time
-    const now = getZonedDateTime();
-
-    if (intervalTime.epochNanoseconds < now.epochNanoseconds) {
+    if (intervalTime.epochNanoseconds < currentTime.epochNanoseconds) {
         intervalTime = intervalTime.add({
-            nanoseconds: getDaylightSavingsOffset(now)
+            nanoseconds: getDaylightSavingsOffset(currentTime)
         });
 
         // this handles the case where the interval was started on the time of the daylight savings execution time
-        if (intervalTime.epochNanoseconds <= now.epochNanoseconds) {
+        if (intervalTime.epochNanoseconds <= currentTime.epochNanoseconds) {
             intervalTime = intervalTime.add({
                 minutes: interval
             });
 
-            intervalTime = adjustIntervalTime(intervalTime, interval, epoch);
+            intervalTime = adjust(intervalTime, interval, epoch, adjustedInterval, currentTime);
         }
     }
 
@@ -200,41 +207,57 @@ function adjustIntervalTime(intervalTime, interval, epoch) {
 }
 
 /**
- * creates a time interval Temporal object
+ * sets the correct time for the intervalTime object
  * 
- * @param {Number} interval mins
+ * @param {Temporal.ZonedDateTime} intervalTime Temporal object
+ * @param {BigInt} interval ns
  * @param {Object} epoch object from createEpoch()
+ * @param {Temporal.ZonedDateTime} currentTime Temporal object
  * @returns Temporal object
  */
-function createTimeInterval(interval, epoch) {
-    const nextInterval = new Temporal.ZonedDateTime(formula(Temporal.Now.instant().epochNanoseconds, BigInt(interval) * conversionFactor, epoch.UTCValue, (d, n) => {
+function adjustIntervalTime(intervalTime, interval, epoch, currentTime) {
+    const convertedInterval = Number(interval / conversionFactor);
+    return adjust(intervalTime, convertedInterval, epoch, convertedInterval % minsInADay, currentTime);
+}
+
+/**
+ * creates a time interval Temporal object
+ * 
+ * @param {BigInt} interval ns
+ * @param {Object} epoch object from createEpoch()
+ * @param {Temporal.ZonedDateTime} currentTime Temporal object
+ * @returns Temporal object
+ */
+function createTimeInterval(interval, epoch, currentTime) {
+    const nextInterval = new Temporal.ZonedDateTime(formula(currentTime.epochNanoseconds, interval, epoch.UTCValue, (d, n) => {
         // for negative deltas, return the nearest interval
         if (d >= 0n) {
             return d / n + 1n;
         }
 
         return d / n;
-    }), Temporal.Now.timeZone(), getCalendar());
+    }), currentTime.timeZone, currentTime.calendar);
 
     // the set time could have the wrong hrs and mins bc of daylight savings
-    return adjustIntervalTime(nextInterval, interval, epoch);
+    return adjustIntervalTime(nextInterval, interval, epoch, currentTime);
 }
 
 /**
  * create a starting time for the intervals
  * 
+ * @param {Temporal.ZonedDateTime} currentTime Temporal object
  * @param {Number} hr 
  * @param {Number} min 
  * @returns epoch object
  */
-function createEpoch(hr, min) {
-    const epochDate = getZonedDateTime().withPlainTime({
+function createEpoch(currentTime, hr, min) {
+    const epoch = currentTime.withPlainTime({
         hour: hr,
         minute: min
-    });
+    }).epochNanoseconds;
 
     return {
-        UTCValue: epochDate.epochNanoseconds,
+        UTCValue: epoch,
         hour: hr,
         minute: min
     };
@@ -243,10 +266,11 @@ function createEpoch(hr, min) {
 /**
  * 
  * @param {Number} intervalTime ms
+ * @param {Number} curentTime ms
  * @returns ms
  */
-function calculateDelay(intervalTime) {
-    const difference = intervalTime - Temporal.Now.instant().epochMilliseconds;
+function calculateDelay(intervalTime, curentTime) {
+    const difference = intervalTime - curentTime;
 
     if (difference > maxDelay) {
         return rate * maxDelay;
@@ -258,44 +282,45 @@ function calculateDelay(intervalTime) {
 /**
  * calls timeout repeatedly
  * 
+ * @param {Temporal.ZonedDateTime} currentTime Temporal object
  * @param {Function} callback function
  * @param {Number} ID int
- * @param {Number} interval mins
+ * @param {BigInt} interval ns
  * @param {Temporal.ZonedDateTime} intervalTime Temporal object
  * @param {Object} epoch object from createEpoch()
  */
-function customInterval(callback, ID, interval, intervalTime, epoch) {
+function customInterval(currentTime, callback, ID, interval, intervalTime, epoch) {
     IDs.set(
         ID,
         setTimeout(() => {
-            const time = Temporal.Now.instant().epochNanoseconds;
+            const now = getZonedDateTime();
 
-            if (intervalTime.epochNanoseconds <= time) {
+            if (intervalTime.epochNanoseconds <= now.epochNanoseconds) {
                 intervalTime = intervalTime.add({
-                    minutes: interval
+                    nanoseconds: Number(interval)
                 });
 
-                if (intervalTime.epochNanoseconds < time) {
+                if (intervalTime.epochNanoseconds < now.epochNanoseconds) {
                     // system time changes greater than the interval time
-                    epoch = createEpoch(epoch.hour, epoch.minute);
-                    intervalTime = createTimeInterval(interval, epoch);
+                    epoch = createEpoch(now, epoch.hour, epoch.minute);
+                    intervalTime = createTimeInterval(interval, epoch, now);
                 }
                 else {
                     callback();
                     // daylight savings adjustment
-                    intervalTime = adjustIntervalTime(intervalTime, interval, epoch);
+                    intervalTime = adjustIntervalTime(intervalTime, interval, epoch, now);
                 }
             }
             else {
                 // system time changes less than the interval time
-                if (intervalTime.epochNanoseconds - time > BigInt(interval) * conversionFactor) {
-                    epoch = createEpoch(epoch.hour, epoch.minute);
-                    intervalTime = createTimeInterval(interval, epoch);
+                if (intervalTime.epochNanoseconds - now.epochNanoseconds > interval) {
+                    epoch = createEpoch(now, epoch.hour, epoch.minute);
+                    intervalTime = createTimeInterval(interval, epoch, now);
                 }
             }
 
-            customInterval(callback, ID, interval, intervalTime, epoch);
-        }, calculateDelay(intervalTime.epochMilliseconds))
+            customInterval(now, callback, ID, interval, intervalTime, epoch);
+        }, calculateDelay(intervalTime.epochMilliseconds, currentTime.epochMilliseconds))
     );
 }
 
@@ -313,11 +338,13 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
         interval = 1;
     }
 
+    const convertedInterval = BigInt(interval) * conversionFactor;
     const timeArr = parseTimeStr(startingTime);
-    const epoch = createEpoch(timeArr[0], timeArr[1]);
+    const currentTime = getZonedDateTime();
+    const epoch = createEpoch(currentTime, timeArr[0], timeArr[1]);
 
     // start the interval
-    customInterval(createCallback(callback, args), newID, interval, createTimeInterval(interval, epoch), epoch);
+    customInterval(currentTime, createCallback(callback, args), newID, convertedInterval, createTimeInterval(convertedInterval, epoch, currentTime), epoch);
 
     return newID++;
 }
