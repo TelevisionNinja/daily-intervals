@@ -135,7 +135,7 @@ function getDaylightSavingsOffset(date) {
         const compareOffset = compare.getTimezoneOffset();
 
         if (dateOffset !== compareOffset) {
-            return Math.abs(Math.abs(dateOffset) - Math.abs(compareOffset));
+            return Math.abs(dateOffset - compareOffset);
         }
 
         subtractAMonth(compare);
