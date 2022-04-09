@@ -282,7 +282,7 @@ function calculateDelay(intervalTime, curentTime) {
 /**
  * calls timeout repeatedly
  * 
- * @param {Temporal.ZonedDateTime} currentTime Temporal object
+ * @param {Number} currentTime utc ms
  * @param {Function} callback function
  * @param {Number} ID int
  * @param {BigInt} interval ns
@@ -319,8 +319,8 @@ function customInterval(currentTime, callback, ID, interval, intervalTime, epoch
                 }
             }
 
-            customInterval(now, callback, ID, interval, intervalTime, epoch);
-        }, calculateDelay(intervalTime.epochMilliseconds, currentTime.epochMilliseconds))
+            customInterval(now.epochMilliseconds, callback, ID, interval, intervalTime, epoch);
+        }, calculateDelay(intervalTime.epochMilliseconds, currentTime))
     );
 }
 
@@ -344,7 +344,7 @@ export function setDailyInterval(callback, interval = 1, startingTime = '0:0', .
     const epoch = createEpoch(currentTime, timeArr[0], timeArr[1]);
 
     // start the interval
-    customInterval(currentTime, createCallback(callback, args), newID, convertedInterval, createTimeInterval(convertedInterval, epoch, currentTime), epoch);
+    customInterval(currentTime.epochMilliseconds, createCallback(callback, args), newID, convertedInterval, createTimeInterval(convertedInterval, epoch, currentTime), epoch);
 
     return newID++;
 }
