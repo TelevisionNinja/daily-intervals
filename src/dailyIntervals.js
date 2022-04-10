@@ -64,7 +64,7 @@ function convertMinsToHrAndMin(mins) {
  * @returns mins
  */
 function getTimeInMins(time) {
-    return convertTimeToMins(time.getHours(), time.getMinutes()); 
+    return convertTimeToMins(time.getHours(), time.getMinutes());
 }
 
 /**
@@ -125,17 +125,17 @@ function subtractAMonth(date) {
  */
 function getDaylightSavingsOffset(date) {
     const currentMonth = date.getMonth();
+    const currentOffset = date.getTimezoneOffset();
     const compare = new Date(date);
 
     // going back to a previous month that has less days will cause the date object to still have the same month
     subtractAMonth(compare);
 
     while (currentMonth !== compare.getMonth()) {
-        const dateOffset = date.getTimezoneOffset();
         const compareOffset = compare.getTimezoneOffset();
 
-        if (dateOffset !== compareOffset) {
-            return Math.abs(dateOffset - compareOffset);
+        if (currentOffset !== compareOffset) {
+            return Math.abs(currentOffset - compareOffset);
         }
 
         subtractAMonth(compare);
