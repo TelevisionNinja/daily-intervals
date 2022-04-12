@@ -159,16 +159,16 @@ function adjustIntervalTime(intervalTime, interval, epoch, currentTime) {
     const adjustedInterval = Math.trunc(interval / conversionFactor) % minsInOneDay;
     let correctIntervalTime = undefined;
 
-    if (adjustedInterval > 0) {
-        correctIntervalTime = convertMinsToHrAndMin(formula(getTimeInMins(intervalTime), adjustedInterval, convertTimeToMins(epoch.hour, epoch.minute), (n) => {
-            return n;
-        }));
-    }
-    else {
+    if (adjustedInterval === 0) {
         correctIntervalTime = {
             hour: epoch.hour,
             minute: epoch.minute
         };
+    }
+    else {
+        correctIntervalTime = convertMinsToHrAndMin(formula(getTimeInMins(intervalTime), adjustedInterval, convertTimeToMins(epoch.hour, epoch.minute), (n) => {
+            return n;
+        }));
     }
 
     // the case where daylight savings sets the time forwards
