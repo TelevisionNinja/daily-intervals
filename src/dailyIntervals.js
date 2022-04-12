@@ -161,7 +161,7 @@ function formula(currentTime, interval, epoch, func) {
  * sets the correct time for the intervalTime object
  * 
  * @param {Temporal.ZonedDateTime} intervalTime Temporal object
- * @param {BigInt} interval ns
+ * @param {Number} interval mins
  * @param {Object} epoch object from createEpoch()
  * @param {Number} adjustedInterval mins
  * @param {Temporal.ZonedDateTime} currentTime Temporal object
@@ -171,16 +171,16 @@ function adjust(intervalTime, interval, epoch, adjustedInterval, currentTime) {
     // calculate the correct interval time and adjust the interval
     let correctIntervalTime = undefined;
 
-    if (adjustedInterval > 0) {
-        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (d, n) => {
-            return Math.trunc(d / n);
-        }));
-    }
-    else {
+    if (adjustedInterval === 0) {
         correctIntervalTime = {
             hour: epoch.hour,
             minute: epoch.minute
         };
+    }
+    else {
+        correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (d, n) => {
+            return Math.trunc(d / n);
+        }));
     }
 
     // the case where daylight savings sets the time forwards
