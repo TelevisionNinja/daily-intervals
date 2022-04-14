@@ -109,11 +109,11 @@ function getDaylightSavingsOffset(date) {
     });
 
     const previousOffest = shiftDayZonedDate.subtract({
-        days: 1
+        nanoseconds: 1
     }).offsetNanoseconds;
 
     const nextOffest = shiftDayZonedDate.add({
-        days: 1
+        nanoseconds: 1
     }).offsetNanoseconds;
 
     return Math.abs(nextOffest - previousOffest);
