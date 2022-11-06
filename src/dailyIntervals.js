@@ -193,8 +193,9 @@ function adjust(intervalTime, interval, epoch, adjustedInterval, currentTime) {
             nanoseconds: getDaylightSavingsOffset(currentTime)
         });
 
-        // this handles the case where the interval was started on the time of the daylight savings execution time
-        if (intervalTime.epochNanoseconds <= currentTime.epochNanoseconds) {
+        // check if the adjusted time is correct
+        // this also handles the case where the interval was started on the time of the daylight savings execution time
+        if (intervalTime.hour !== correctIntervalTime.hour || intervalTime.minute !== correctIntervalTime.minute || intervalTime.epochNanoseconds <= currentTime.epochNanoseconds) {
             intervalTime = intervalTime.add({
                 minutes: interval
             });
