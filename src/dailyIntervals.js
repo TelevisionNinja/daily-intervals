@@ -179,8 +179,9 @@ function adjustIntervalTime(intervalTime, interval, epoch, currentTime) {
     if (intervalTime.valueOf() < currentTime.valueOf()) {
         intervalTime.setUTCMinutes(intervalTime.getUTCMinutes() + getDaylightSavingsOffset(currentTime));
 
-        // this handles the case where the interval was started on the time of the daylight savings execution time
-        if (intervalTime.valueOf() <= currentTime.valueOf()) {
+        // check if the adjusted time is correct
+        // this also handles the case where the interval was started on the time of the daylight savings execution time
+        if (intervalTime.getHours() !== correctIntervalTime.hour || intervalTime.getMinutes() !== correctIntervalTime.minute || intervalTime.valueOf() <= currentTime.valueOf()) {
             intervalTime.setTime(intervalTime.valueOf() + interval);
             adjustIntervalTime(intervalTime, interval, epoch, currentTime);
         }
