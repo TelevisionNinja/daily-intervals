@@ -179,6 +179,7 @@ function adjust(intervalTime, interval, epoch, adjustedInterval, currentTime) {
     }
     else {
         correctIntervalTime = convertMinsToHrAndMins(formula(getTimeInMins(intervalTime), adjustedInterval, getTimeInMins(epoch), (d, n) => {
+            // the variables are floats
             return Math.trunc(d / n);
         }));
     }
@@ -231,6 +232,8 @@ function adjustIntervalTime(intervalTime, interval, epoch, currentTime) {
  */
 function createTimeInterval(interval, epoch, currentTime) {
     const nextInterval = new Temporal.ZonedDateTime(formula(currentTime.epochNanoseconds, interval, epoch.UTCValue, (d, n) => {
+        // the variables are big ints
+
         // for negative deltas, return the nearest interval
         if (d >= 0n) {
             return d / n + 1n;
